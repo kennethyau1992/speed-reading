@@ -11,6 +11,7 @@ const fontOptions = [
 ];
 
 const pauseCharacters = new Set(['.', ',', '!', '?', ';', ':', '。', '，', '！', '？', '；', '：']);
+const apostropheCharacters = new Set(["'", '’', 'ʼ', '＇']);
 const cjkRegex = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
 const wordRegex = /[\p{L}\p{N}\p{M}]/u;
 
@@ -58,12 +59,25 @@ const tokenizeText = (input) => {
     }
 
     if (buffer) {
+      if (apostropheCharacters.has(char)) {
+        buffer += char;
+        return;
+      }
+
       buffer += char;
       flushBuffer();
       return;
     }
 
     if (tokens.length > 0) {
+      if (apostropheCharacters.has(char)) {
+        const previous = tokens[tokens.length - 1];
+        if (previous && wordRegex.test(previous[previous.length - 1])) {
+          tokens[tokens.length - 1] += char;
+          return;
+        }
+      }
+
       tokens[tokens.length - 1] += char;
       return;
     }
