@@ -1,16 +1,67 @@
-# React + Vite
+# RSVP Speed Reader
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + Vite single-page app that replicates the RSVP (rapid serial visual presentation) speed-reading experience from ReadMultiplex. The interface is optimized for dark mode, supports English and CJK (Chinese/Japanese/Korean) text, and runs entirely in the browser.
 
-Currently, two official plugins are available:
+## What This App Does
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Displays words or characters in a fixed focus box for speed reading.
+- Highlights the optimal recognition point (ORP) in red for each token.
+- Allows live adjustment of WPM, chunk size, and punctuation pause.
+- Supports drag-and-drop `.txt` files or manual text input.
+- Provides Play, Pause/Resume, and Stop controls.
 
-## React Compiler
+## Project Structure
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- `src/RSVPPage.jsx`: Main React component with RSVP logic and UI.
+- `src/rsvpPage.css`: UI styles that match the original RSVP look.
+- `src/App.jsx`: Renders the RSVP page as the single app view.
+- `vite.config.js`: Sets the base path for GitHub Pages.
+- `.github/workflows/deploy.yml`: GitHub Pages deployment workflow.
 
-## Expanding the ESLint configuration
+## How It Works (Step-by-Step)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+1. **User input** is captured via textarea or dropped `.txt` file.
+2. **Tokenization** converts input into display tokens:
+   - Space-delimited text becomes words.
+   - CJK characters become individual tokens.
+   - Punctuation is attached to the preceding token.
+3. **Playback** begins when Play is pressed:
+   - A timer advances through tokens based on WPM.
+   - Chunk size controls how many tokens appear per flash.
+4. **Pause handling** applies extra delay when a token ends in punctuation.
+5. **ORP highlighting** splits each token into left/ORP/right spans and colors the ORP red.
+6. **Center alignment** uses measured widths to align the ORP at center.
+7. **State controls** manage Play, Pause/Resume, and Stop transitions.
+
+## Key Logic Tour
+
+- Tokenization + ORP helpers live in `src/RSVPPage.jsx`.
+- The RSVP timer uses `setTimeout` with dynamic delays.
+- Sliders update the WPM/chunk/pause values in real time.
+- `useLayoutEffect` centers the ORP after each display update.
+
+## Development
+
+```bash
+cd rsvp
+npm install
+npm run dev
+```
+
+## Build + Static Export
+
+```bash
+npm run build
+```
+
+This outputs static files to `dist/` which can be hosted on GitHub Pages.
+
+## Deployment (GitHub Pages)
+
+1. Enable Pages: `https://github.com/kennethyau1992/speed-reading/settings/pages`
+2. Set **Source** to **GitHub Actions**.
+3. Push to `main` to trigger deployment.
+
+## Spec Kit Format
+
+- `spec.md` contains the feature spec formatted to the Spec Kit style.

@@ -10,17 +10,69 @@ const fontOptions = [
   { label: 'Inter (Modern)', value: '"Inter", sans-serif' },
 ];
 
+const pauseCharacters = new Set(['.', ',', '!', '?', ';', ':', '。', '，', '！', '？', '；', '：']);
+const cjkRegex = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+const wordRegex = /[\p{L}\p{N}\p{M}]/u;
+
 const buildOrpSlices = (word) => {
-  if (word.length < 2) {
+  const characters = Array.from(word);
+
+  if (characters.length < 2) {
     return { left: '', orp: word, right: '' };
   }
 
-  const orpIndex = Math.floor((word.length - 1) / 2);
+  const orpIndex = Math.floor((characters.length - 1) / 2);
   return {
-    left: word.slice(0, orpIndex),
-    orp: word[orpIndex],
-    right: word.slice(orpIndex + 1),
+    left: characters.slice(0, orpIndex).join(''),
+    orp: characters[orpIndex],
+    right: characters.slice(orpIndex + 1).join(''),
   };
+};
+
+const tokenizeText = (input) => {
+  const tokens = [];
+  let buffer = '';
+
+  const flushBuffer = () => {
+    if (buffer) {
+      tokens.push(buffer);
+      buffer = '';
+    }
+  };
+
+  Array.from(input).forEach((char) => {
+    if (/\s/.test(char)) {
+      flushBuffer();
+      return;
+    }
+
+    if (cjkRegex.test(char)) {
+      flushBuffer();
+      tokens.push(char);
+      return;
+    }
+
+    if (wordRegex.test(char)) {
+      buffer += char;
+      return;
+    }
+
+    if (buffer) {
+      buffer += char;
+      flushBuffer();
+      return;
+    }
+
+    if (tokens.length > 0) {
+      tokens[tokens.length - 1] += char;
+      return;
+    }
+
+    tokens.push(char);
+  });
+
+  flushBuffer();
+  return tokens;
 };
 
 const RSVPPage = () => {
@@ -80,10 +132,11 @@ const RSVPPage = () => {
     indexRef.current += chunk;
 
     const lastWord = chunkWords[chunkWords.length - 1] || '';
-    const lastChar = lastWord[lastWord.length - 1];
+    const characters = Array.from(lastWord);
+    const lastChar = characters[characters.length - 1];
     let delay = 60000 / (wpmRef.current || 300);
 
-    if (lastChar === '.' || lastChar === ',') {
+    if (lastChar && pauseCharacters.has(lastChar)) {
       delay += (pauseRef.current || 0) * 1000;
     }
 
@@ -100,7 +153,7 @@ const RSVPPage = () => {
     }
 
     if (!isRunningRef.current) {
-      wordsRef.current = trimmedText.split(/\s+/);
+      wordsRef.current = tokenizeText(trimmedText);
       indexRef.current = 0;
     }
 
