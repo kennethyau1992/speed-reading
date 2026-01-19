@@ -45,8 +45,10 @@ A React + Vite single-page app that replicates the RSVP (rapid serial visual pre
 ```bash
 cd rsvp
 npm install
-npm run dev
+npm run dev:all
 ```
+
+Runs Vite on `http://localhost:5173` and the proxy server on `http://localhost:5174`.
 
 ## Build + Static Export
 
@@ -54,13 +56,20 @@ npm run dev
 npm run build
 ```
 
-This outputs static files to `dist/` which can be hosted on GitHub Pages.
+This outputs static files to `dist/` which can be hosted on GitHub Pages. The URL fetch feature expects the backend API to be deployed on Vercel.
 
 ## Deployment (GitHub Pages)
 
 1. Enable Pages: `https://github.com/kennethyau1992/speed-reading/settings/pages`
 2. Set **Source** to **GitHub Actions**.
 3. Push to `main` to trigger deployment.
+
+## Deployment (Vercel API)
+
+1. Create a new Vercel project pointing at the `rsvp` folder.
+2. Set the build command to `npm install` (no build output needed).
+3. Add env var `VITE_API_BASE` to the GitHub Pages build (or locally) with your Vercel URL, e.g. `https://your-project.vercel.app`.
+4. Deploy and verify `/api/readability` responds.
 
 ## Spec Kit Format
 

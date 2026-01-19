@@ -1,4 +1,3 @@
-import { Readability } from '@mozilla/readability';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './rsvpPage.css';
 
@@ -74,30 +73,6 @@ const tokenizeText = (input) => {
 
   flushBuffer();
   return tokens;
-};
-
-const extractReadableText = (html, sourceUrl) => {
-  const parser = new DOMParser();
-  const document = parser.parseFromString(html, 'text/html');
-
-  if (document.head) {
-    const base = document.createElement('base');
-    base.href = sourceUrl;
-    document.head.prepend(base);
-  }
-
-  const reader = new Readability(document);
-  const article = reader.parse();
-  const textContent = article?.textContent?.trim();
-
-  if (!textContent) {
-    return null;
-  }
-
-  return {
-    title: article?.title?.trim() || '',
-    text: textContent,
-  };
 };
 
 const RSVPPage = () => {
@@ -273,21 +248,29 @@ const RSVPPage = () => {
       setUrlStatus({ state: 'loading', message: 'Fetching article…' });
 
       try {
-        const response = await fetch(trimmedUrl, { signal: controller.signal });
+        const baseUrl = import.meta.env.VITE_API_BASE || '';
+        const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+        const response = await fetch(`${normalizedBase}/api/readability`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: trimmedUrl }),
+          signal: controller.signal,
+        });
 
         if (!response.ok) {
-          throw new Error(`Request failed (${response.status})`);
+          const payload = await response.json().catch(() => ({}));
+          const message = payload?.message || `Request failed (${response.status})`;
+          throw new Error(message);
         }
 
-        const html = await response.text();
-        const result = extractReadableText(html, trimmedUrl);
+        const payload = await response.json();
 
-        if (!result) {
+        if (!payload?.text) {
           throw new Error('Unable to extract readable text from this page.');
         }
 
-        setText(result.text);
-        setArticleTitle(result.title);
+        setText(payload.text);
+        setArticleTitle(payload.title || '');
         setUrlStatus({ state: 'success', message: 'Article loaded.' });
       } catch (error) {
         if (error.name === 'AbortError') {
@@ -295,12 +278,10 @@ const RSVPPage = () => {
         }
 
         setArticleTitle('');
-        const fallbackMessage = 'Failed to fetch this URL. Check CORS or try again.';
-        const message = error?.message?.includes('Failed to fetch')
-          ? 'Fetch blocked (CORS). Try another source or paste the text instead.'
-          : error?.message || fallbackMessage;
-
-        setUrlStatus({ state: 'error', message });
+        setUrlStatus({
+          state: 'error',
+          message: error?.message || 'Failed to fetch this URL. Try again later.',
+        });
       }
     },
     [setText, stopReading]
@@ -392,7 +373,7 @@ const RSVPPage = () => {
         </div>
         {articleTitle ? <div className="rsvp-url-title">{articleTitle}</div> : null}
         <div className="rsvp-url-hint">
-          Fetches in your browser. Some sites may block CORS.
+          Uses the server proxy to fetch articles (including X.com).
         </div>
       </div>
 
