@@ -35,17 +35,33 @@ const readJsonBody = async (req) => {
     return req.body;
   }
 
-  const chunks = [];
-  for await (const chunk of req) {
-    chunks.push(chunk);
+  if (typeof req.body === 'string') {
+    try {
+      return JSON.parse(req.body);
+    } catch {
+      return {};
+    }
   }
 
-  if (chunks.length === 0) {
+  if (!req.readable) {
+    return {};
+  }
+
+  const rawBody = await new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', (chunk) => {
+      data += chunk;
+    });
+    req.on('end', () => resolve(data));
+    req.on('error', reject);
+  });
+
+  if (!rawBody) {
     return {};
   }
 
   try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf-8'));
+    return JSON.parse(rawBody);
   } catch {
     return {};
   }
@@ -61,12 +77,26 @@ export default async function handler(req, res) {
     return;
   }
 
+  console.log('RSVP API request', {
+    method: req.method,
+    contentType: req.headers['content-type'],
+  });
+
   if (req.method !== 'POST') {
     res.status(405).json({ message: 'Method not allowed.' });
     return;
   }
 
-  const { url } = await readJsonBody(req);
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    console.error('RSVP API body parse failed', error);
+    res.status(400).json({ message: 'Unable to parse request body.' });
+    return;
+  }
+
+  const { url } = body;
 
   if (!url || typeof url !== 'string') {
     res.status(400).json({ message: 'URL is required.' });
@@ -85,6 +115,8 @@ export default async function handler(req, res) {
         Accept: 'text/html,application/xhtml+xml',
       },
     });
+
+    console.log('RSVP API fetch status', response.status);
 
     if (!response.ok) {
       res.status(response.status).json({ message: `Request failed (${response.status}).` });
@@ -111,6 +143,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ title: article?.title?.trim() || '', text });
   } catch (error) {
+    console.error('RSVP API error', error);
     res.status(500).json({ message: error?.message || 'Failed to fetch the URL.' });
   }
 }
