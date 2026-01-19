@@ -1,3 +1,4 @@
+import { Readability } from '@mozilla/readability';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './rsvpPage.css';
 
@@ -75,8 +76,35 @@ const tokenizeText = (input) => {
   return tokens;
 };
 
+const extractReadableText = (html, sourceUrl) => {
+  const parser = new DOMParser();
+  const document = parser.parseFromString(html, 'text/html');
+
+  if (document.head) {
+    const base = document.createElement('base');
+    base.href = sourceUrl;
+    document.head.prepend(base);
+  }
+
+  const reader = new Readability(document);
+  const article = reader.parse();
+  const textContent = article?.textContent?.trim();
+
+  if (!textContent) {
+    return null;
+  }
+
+  return {
+    title: article?.title?.trim() || '',
+    text: textContent,
+  };
+};
+
 const RSVPPage = () => {
   const [text, setText] = useState('');
+  const [articleUrl, setArticleUrl] = useState('');
+  const [articleTitle, setArticleTitle] = useState('');
+  const [urlStatus, setUrlStatus] = useState({ state: 'idle', message: '' });
   const [wpm, setWpm] = useState(300);
   const [chunkSize, setChunkSize] = useState(1);
   const [pauseSeconds, setPauseSeconds] = useState(0.25);
@@ -95,6 +123,7 @@ const RSVPPage = () => {
   const pauseRef = useRef(pauseSeconds);
   const isRunningRef = useRef(isRunning);
   const isPausedRef = useRef(isPaused);
+  const lastFetchRef = useRef({ url: '', controller: null });
 
   const clearTimer = useCallback(() => {
     if (timeoutRef.current) {
@@ -148,6 +177,11 @@ const RSVPPage = () => {
     const trimmedText = text.trim();
 
     if (!trimmedText) {
+      if (urlStatus.state === 'loading') {
+        alert('Still fetching the article, please wait.');
+        return;
+      }
+
       alert('Paste some text first!');
       return;
     }
@@ -162,7 +196,7 @@ const RSVPPage = () => {
     setIsRunning(true);
     setIsPaused(false);
     displayNext();
-  }, [displayNext, text]);
+  }, [displayNext, text, urlStatus.state]);
 
   const togglePause = useCallback(() => {
     if (!isRunningRef.current) {
@@ -191,6 +225,9 @@ const RSVPPage = () => {
     }
 
     if (file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt')) {
+      setArticleUrl('');
+      setArticleTitle('');
+      setUrlStatus({ state: 'idle', message: '' });
       const reader = new FileReader();
       reader.onload = (loadEvent) => {
         const result = loadEvent.target?.result;
@@ -206,6 +243,70 @@ const RSVPPage = () => {
     }
   }, []);
 
+  const fetchArticle = useCallback(
+    async (rawUrl) => {
+      const trimmedUrl = rawUrl.trim();
+      lastFetchRef.current.controller?.abort();
+      lastFetchRef.current = { url: trimmedUrl, controller: null };
+
+      if (!trimmedUrl) {
+        setUrlStatus({ state: 'idle', message: '' });
+        setArticleTitle('');
+        return;
+      }
+
+      if (!/^https?:\/\//i.test(trimmedUrl)) {
+        setUrlStatus({ state: 'error', message: 'Enter a URL starting with http:// or https://.' });
+        setArticleTitle('');
+        return;
+      }
+
+      setText('');
+      setArticleTitle('');
+
+      if (isRunningRef.current) {
+        stopReading();
+      }
+
+      const controller = new AbortController();
+      lastFetchRef.current = { url: trimmedUrl, controller };
+      setUrlStatus({ state: 'loading', message: 'Fetching article…' });
+
+      try {
+        const response = await fetch(trimmedUrl, { signal: controller.signal });
+
+        if (!response.ok) {
+          throw new Error(`Request failed (${response.status})`);
+        }
+
+        const html = await response.text();
+        const result = extractReadableText(html, trimmedUrl);
+
+        if (!result) {
+          throw new Error('Unable to extract readable text from this page.');
+        }
+
+        setText(result.text);
+        setArticleTitle(result.title);
+        setUrlStatus({ state: 'success', message: 'Article loaded.' });
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          return;
+        }
+
+        setArticleTitle('');
+        const fallbackMessage = 'Failed to fetch this URL. Check CORS or try again.';
+        const message = error?.message?.includes('Failed to fetch')
+          ? 'Fetch blocked (CORS). Try another source or paste the text instead.'
+          : error?.message || fallbackMessage;
+
+        setUrlStatus({ state: 'error', message });
+      }
+    },
+    [setText, stopReading]
+  );
+
+
   useEffect(() => {
     wpmRef.current = wpm;
     chunkRef.current = chunkSize;
@@ -218,6 +319,20 @@ const RSVPPage = () => {
   }, [chunkSize, clearTimer, displayNext, pauseSeconds, wpm]);
 
   useEffect(() => {
+    const trimmedUrl = articleUrl.trim();
+
+    if (!trimmedUrl) {
+      return;
+    }
+
+    const delay = setTimeout(() => {
+      fetchArticle(trimmedUrl);
+    }, 600);
+
+    return () => clearTimeout(delay);
+  }, [articleUrl, fetchArticle]);
+
+  useEffect(() => {
     isRunningRef.current = isRunning;
   }, [isRunning]);
 
@@ -228,6 +343,7 @@ const RSVPPage = () => {
   useEffect(() => {
     return () => {
       clearTimer();
+      lastFetchRef.current.controller?.abort();
     };
   }, [clearTimer]);
 
@@ -256,12 +372,41 @@ const RSVPPage = () => {
     <div className="rsvp-page">
       <h1 className="rsvp-title">ReadMultiplex.com: RSVP Speed Reading</h1>
 
+      <div className="rsvp-url-panel" aria-label="Import article from URL">
+        <label className="rsvp-url-label" htmlFor="articleUrl">
+          Article URL:
+        </label>
+        <input
+          id="articleUrl"
+          type="url"
+          className="rsvp-url-input"
+          placeholder="https://example.com/article"
+          value={articleUrl}
+          onChange={(event) => {
+            setArticleUrl(event.target.value);
+            setUrlStatus({ state: 'idle', message: '' });
+          }}
+        />
+        <div className={`rsvp-url-status ${urlStatus.state}`} role="status">
+          {urlStatus.message}
+        </div>
+        {articleTitle ? <div className="rsvp-url-title">{articleTitle}</div> : null}
+        <div className="rsvp-url-hint">
+          Fetches in your browser. Some sites may block CORS.
+        </div>
+      </div>
+
       <textarea
         className={`rsvp-input${isDragOver ? ' dragover' : ''}`}
         placeholder="Paste your text here... or drag & drop a .txt file"
         aria-label="Paste your text to speed read"
         value={text}
-        onChange={(event) => setText(event.target.value)}
+        onChange={(event) => {
+          setText(event.target.value);
+          setArticleUrl('');
+          setArticleTitle('');
+          setUrlStatus({ state: 'idle', message: '' });
+        }}
         onDragOver={(event) => {
           event.preventDefault();
           setIsDragOver(true);

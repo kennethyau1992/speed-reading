@@ -8,11 +8,11 @@
 
 ### User Story 1 - Start a speed-reading session (Priority: P1)
 
-Readers want to paste text and start a rapid serial visual presentation (RSVP) session with adjustable controls.
+Readers want to provide text (paste, drop a `.txt` file, or fetch a URL) and start a rapid serial visual presentation (RSVP) session with adjustable controls.
 
 **Why this priority**: Core value is the ability to read text quickly with RSVP pacing and focus alignment.
 
-**Independent Test**: Paste text, press Play, verify words advance in the focus box at the configured WPM.
+**Independent Test**: Paste text or fetch a URL, press Play, verify words advance in the focus box at the configured WPM.
 
 **Acceptance Scenarios**:
 
@@ -21,7 +21,23 @@ Readers want to paste text and start a rapid serial visual presentation (RSVP) s
 
 ---
 
-### User Story 2 - Adjust speed controls mid-session (Priority: P1)
+### User Story 2 - Import article via URL (Priority: P1)
+
+Readers want to paste a URL and automatically fetch the main article text for RSVP playback.
+
+**Why this priority**: It reduces manual copy/paste and keeps the experience fast and focused.
+
+**Independent Test**: Paste an article URL, wait for the fetch to complete, confirm the extracted text is ready for Play.
+
+**Acceptance Scenarios**:
+
+1. **Given** a valid URL, **When** the fetch completes, **Then** the main article text replaces the textarea content.
+2. **Given** an invalid URL format, **When** the input changes, **Then** an inline error message explains the expected URL format.
+3. **Given** a CORS-blocked URL, **When** the fetch fails, **Then** an inline error explains the fetch was blocked.
+
+---
+
+### User Story 3 - Adjust speed controls mid-session (Priority: P1)
 
 Readers need to change WPM, chunk size, and pause values while reading without restarting.
 
@@ -37,7 +53,7 @@ Readers need to change WPM, chunk size, and pause values while reading without r
 
 ---
 
-### User Story 3 - Pause or stop a session (Priority: P2)
+### User Story 4 - Pause or stop a session (Priority: P2)
 
 Readers want to pause to break focus and resume or stop to reset.
 
@@ -53,7 +69,7 @@ Readers want to pause to break focus and resume or stop to reset.
 
 ---
 
-### User Story 4 - Support multilingual text input (Priority: P2)
+### User Story 5 - Support multilingual text input (Priority: P2)
 
 Readers can input English or CJK text and see tokens advance correctly.
 
@@ -70,18 +86,21 @@ Readers can input English or CJK text and see tokens advance correctly.
 
 - Empty input shows an alert and prevents playback.
 - Dragging a non-text file shows an alert.
+- URL fetches can fail due to CORS restrictions.
+- URLs that do not contain a readable article show an inline error.
 - Very short tokens still render an ORP highlight without layout errors.
 
 ## Requirements
 
 ### Functional Requirements
 
-- **FR-001**: The system must accept manual text entry and drag-and-drop `.txt` files.
-- **FR-002**: The system must tokenize text for both space-delimited and CJK scripts.
-- **FR-003**: The system must display tokens in the focus box with ORP highlighting.
-- **FR-004**: The system must allow WPM, chunk size, and pause duration adjustments during playback.
-- **FR-005**: The system must support Play, Pause/Resume, and Stop controls.
-- **FR-006**: The system must reset UI state when playback completes.
+- **FR-001**: The system must accept manual text entry, drag-and-drop `.txt` files, and article URLs.
+- **FR-002**: The system must fetch and extract the main article text from a provided URL.
+- **FR-003**: The system must tokenize text for both space-delimited and CJK scripts.
+- **FR-004**: The system must display tokens in the focus box with ORP highlighting.
+- **FR-005**: The system must allow WPM, chunk size, and pause duration adjustments during playback.
+- **FR-006**: The system must support Play, Pause/Resume, and Stop controls.
+- **FR-007**: The system must reset UI state when playback completes.
 
 ## Success Criteria
 
@@ -89,5 +108,6 @@ Readers can input English or CJK text and see tokens advance correctly.
 
 - **SC-001**: Playback begins within 1 second after pressing Play.
 - **SC-002**: Adjusting WPM changes the interval on the next tick.
-- **SC-003**: CJK input displays one character per RSVP token without splitting errors.
-- **SC-004**: Users can complete a full session without console errors.
+- **SC-003**: URL fetches populate the textarea within a few seconds when allowed.
+- **SC-004**: CJK input displays one character per RSVP token without splitting errors.
+- **SC-005**: Users can complete a full session without console errors.

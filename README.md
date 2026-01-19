@@ -7,7 +7,7 @@ A React + Vite single-page app that replicates the RSVP (rapid serial visual pre
 - Displays words or characters in a fixed focus box for speed reading.
 - Highlights the optimal recognition point (ORP) in red for each token.
 - Allows live adjustment of WPM, chunk size, and punctuation pause.
-- Supports drag-and-drop `.txt` files or manual text input.
+- Supports drag-and-drop `.txt` files, manual text input, or fetching article URLs.
 - Provides Play, Pause/Resume, and Stop controls.
 
 ## Project Structure
@@ -20,7 +20,7 @@ A React + Vite single-page app that replicates the RSVP (rapid serial visual pre
 
 ## How It Works (Step-by-Step)
 
-1. **User input** is captured via textarea or dropped `.txt` file.
+1. **User input** is captured via textarea, dropped `.txt` file, or an article URL fetch.
 2. **Tokenization** converts input into display tokens:
    - Space-delimited text becomes words.
    - CJK characters become individual tokens.
