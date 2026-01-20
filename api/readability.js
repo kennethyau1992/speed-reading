@@ -48,6 +48,43 @@ const extractXText = (url, html) => {
   return cleaned ? { title: 'X (Tweet)', text: cleaned } : null;
 };
 
+const extractTweetId = (url) => {
+  const match = url.match(/x\.com\/[^/]+\/status\/(\d+)/i);
+  return match?.[1] || null;
+};
+
+const fetchTweetFromSyndication = async (url) => {
+  const tweetId = extractTweetId(url);
+
+  if (!tweetId) {
+    return null;
+  }
+
+  const syndicationUrl = `https://cdn.syndication.twimg.com/tweet-result?token=1&id=${tweetId}`;
+  const response = await fetch(syndicationUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (RSVP Speed Reader)',
+      Accept: 'application/json,text/plain,*/*',
+    },
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = await response.json().catch(() => null);
+  const text = payload?.text?.trim();
+
+  if (!text) {
+    return null;
+  }
+
+  return {
+    title: payload?.user?.screen_name ? `X @${payload.user.screen_name}` : 'X (Tweet)',
+    text,
+  };
+};
+
 const readJsonBody = async (req) => {
   if (req.body && typeof req.body === 'object') {
     return req.body;
@@ -142,7 +179,7 @@ export default async function handler(req, res) {
     }
 
     const html = await response.text();
-    const xResult = extractXText(url, html);
+    const xResult = extractXText(url, html) || (await fetchTweetFromSyndication(url));
 
     if (xResult) {
       res.status(200).json(xResult);
