@@ -12,6 +12,9 @@
     "lint": "eslint .",
     "preview": "vite preview"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
     "express": "^5.2.1",
