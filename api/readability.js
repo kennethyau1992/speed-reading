@@ -1,5 +1,23 @@
-import { Readability } from '@mozilla/readability';
-import { JSDOM } from 'jsdom';
+let Readability;
+let JSDOM;
+
+const loadParsingLibraries = async () => {
+  if (Readability && JSDOM) {
+    return { Readability, JSDOM };
+  }
+
+  const readabilityModule = await import('@mozilla/readability');
+  const jsdomModule = await import('jsdom');
+
+  Readability = readabilityModule.Readability || readabilityModule.default?.Readability || readabilityModule.default;
+  JSDOM = jsdomModule.JSDOM || jsdomModule.default?.JSDOM || jsdomModule.default;
+
+  if (!Readability || !JSDOM) {
+    throw new Error('Unable to load parsing libraries.');
+  }
+
+  return { Readability, JSDOM };
+};
 
 const isValidUrl = (url) => {
   try {
@@ -131,8 +149,9 @@ export default async function handler(req, res) {
       return;
     }
 
-    const dom = new JSDOM(html, { url });
-    const reader = new Readability(dom.window.document);
+    const { Readability: ReadabilityImpl, JSDOM: JSDOMImpl } = await loadParsingLibraries();
+    const dom = new JSDOMImpl(html, { url });
+    const reader = new ReadabilityImpl(dom.window.document);
     const article = reader.parse();
     const text = article?.textContent?.trim();
 
