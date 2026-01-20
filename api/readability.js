@@ -53,6 +53,8 @@ const extractTweetId = (url) => {
   return match?.[1] || null;
 };
 
+const isXStatusUrl = (url) => Boolean(extractTweetId(url));
+
 const fetchTweetFromSyndication = async (url) => {
   const tweetId = extractTweetId(url);
 
@@ -73,11 +75,15 @@ const fetchTweetFromSyndication = async (url) => {
   }
 
   const payload = await response.json().catch(() => null);
-  const text = payload?.text?.trim();
+  const rawText = payload?.text?.trim();
 
-  if (!text) {
+  if (!rawText) {
     return null;
   }
+
+  const urlEntity = payload?.entities?.urls?.[0];
+  const expandedUrl = urlEntity?.expanded_url || urlEntity?.url;
+  const text = rawText === urlEntity?.url && expandedUrl ? expandedUrl : rawText;
 
   return {
     title: payload?.user?.screen_name ? `X @${payload.user.screen_name}` : 'X (Tweet)',
@@ -164,6 +170,15 @@ export default async function handler(req, res) {
   }
 
   try {
+    if (isXStatusUrl(url)) {
+      const xResult = await fetchTweetFromSyndication(url);
+
+      if (xResult) {
+        res.status(200).json(xResult);
+        return;
+      }
+    }
+
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (RSVP Speed Reader)',
@@ -179,7 +194,7 @@ export default async function handler(req, res) {
     }
 
     const html = await response.text();
-    const xResult = extractXText(url, html) || (await fetchTweetFromSyndication(url));
+    const xResult = extractXText(url, html);
 
     if (xResult) {
       res.status(200).json(xResult);
